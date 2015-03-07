@@ -1,0 +1,17 @@
+{
+	"name": "corpus/sql",
+	"description": "Simple PDO Wrapper",
+	"license": "MIT",
+	"authors": [{
+		"name": "Jesse Donat",
+		"email": "donatj@gmail.com"
+	}],
+	"require-dev":{
+		"phpunit/phpunit" : "~4.1"
+	},
+	"autoload": {
+		"psr-4": {
+			"Corpus\\Sql\\": "src/"
+		}
+	}
+}
