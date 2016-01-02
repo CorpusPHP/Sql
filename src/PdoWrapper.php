@@ -3,7 +3,6 @@
 namespace Corpus\Sql;
 
 use Corpus\Sql\Exceptions\MappingInvalidValueException;
-use Corpus\Sql\Exceptions\MappingException;
 use Corpus\Sql\Interfaces\EngineInterface;
 
 class PdoWrapper {
@@ -45,28 +44,38 @@ class PdoWrapper {
 	}
 
 	protected function processQueryMap( $query, array $map ) {
-
 		// @todo maybe add some escape handling up here - look into pdo ? escaping.
+		$splitQuery = preg_split('/(\?{1,2})/', $query, null, PREG_SPLIT_DELIM_CAPTURE);
 
-		if( count($map) != substr_count($query, '?') ) {
-			throw new MappingException('Number of "?" in query do not match number of provided values');
-		}
+		$value = reset($map);
 
-		$explodedQuery = explode('?', $query);
-
-		$rewrittenQuery = reset($explodedQuery);
+		$rewrittenQuery = '';
 		$rewrittenMap   = array();
-		foreach( $map as $value ) {
-			if( is_array($value) ) {
-				$rewrittenQuery .= rtrim(str_repeat("?,", count($value)), ",");
-			} elseif( is_scalar($value) ) {
-				$rewrittenQuery .= '?';
+
+		foreach( $splitQuery as $queryPart ) {
+
+			if( $queryPart === '?' ) {
+				if( is_scalar($value) || is_null($value) ) {
+					$rewrittenQuery .= '?';
+				} else {
+					throw new MappingInvalidValueException('Invalid type: ' . gettype($value) . ' - expected null or scalar');
+				}
+			} elseif( $queryPart === '??' ) {
+				$count = count($value);
+				if( is_array($value) && $count > 0 ) {
+					$rewrittenQuery .= rtrim(str_repeat("?,", $count), ",");
+				} elseif( $count == 0 ) {
+					throw new MappingInvalidValueException('Array escaping passed empty set.');
+				} else {
+					throw new MappingInvalidValueException('Invalid type: ' . gettype($value) . ' - expected array');
+				}
 			} else {
-				throw new MappingInvalidValueException('Array escaping passed empty set.');
+				$rewrittenQuery .= $queryPart;
+				continue;
 			}
 
-			$rewrittenQuery .= next($explodedQuery);
 			$rewrittenMap = array_merge($rewrittenMap, (array)$value);
+			$value        = next($map);
 		}
 
 		return array( $rewrittenQuery, $rewrittenMap );
